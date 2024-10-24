@@ -1,0 +1,52 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::<AWS_ACCOUNT>:role/<AWS_ACCOUNT_GITHUB_ROLE>
+          role-session-name: <ROLE_SESSION_NAME>
+          aws-region: us-east-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.x'
+
+      - name: Terraform init
+        id: init
+        run: terraform init
+        working-directory: infra
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate
+        working-directory: infra
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan
+        working-directory: infra
+
+      - name: Terraform Plan Status
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
+
+      - name: Terraform Apply
+        run: terraform apply --auto-approve
+        working-directory: infra
